@@ -33,11 +33,15 @@ jobs:
         with:
           allowUpdates: true
           token: ${{ secrets.GITHUB_TOKEN }}
+      - name: Install Task
+        run: go install github.com/go-task/task/v3/cmd/task@latest
+      - name: Add task to PATH
+        run: echo "$(go env GOPATH)/bin" >> $GITHUB_PATH
       - uses: wangyoucao577/go-release-action@master
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           goos: ${{ matrix.goos }}
           goarch: ${{ matrix.goarch }}
-          build_command: "go install github.com/go-task/task/v3/cmd/task@latest && task build"
+          build_command: "task build"
           binary_name: "mirror-proxy"
           extra_files: mirror-proxy
