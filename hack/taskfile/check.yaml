@@ -1,0 +1,81 @@
+version: "3"
+
+output: "prefixed"
+
+tasks:
+  check:
+    desc: 执行所有静态检查
+    deps:
+      [go-mod-tidy, check-govet, check-gofmt, check-gofumpt, check-staticcheck]
+    cmds:
+      - echo "✅ All checks passed!"
+    silent: true
+  check-govet:
+    internal: true
+    desc: go vet 检查
+    run: once
+    cmds:
+      - mkdir -p bin
+      - go vet ./... | tee bin/govet.log
+      - test `cat bin/govet.log | wc -l` -eq 0
+      - rm -f bin/govet.log
+
+  check-gofmt:
+    internal: true
+    desc: go fmt 检查
+    run: once
+    cmds:
+      - mkdir -p bin
+      - go fmt ./... | tee bin/gofmt.log
+      - test `cat bin/gofmt.log | wc -l` -eq 0
+      - rm -f bin/gofmt.log
+
+  check-gofumpt:
+    internal: true
+    desc: gofumpt 格式化检查
+    run: once
+    cmds:
+      - mkdir -p bin
+      - gofumpt -l -w . | tee bin/gofumpt.log
+      - test `cat bin/gofumpt.log | wc -l` -eq 0
+      - rm -f bin/gofumpt.log
+
+  check-staticcheck:
+    internal: true
+    desc: staticcheck 代码静态分析
+    run: once
+    cmds:
+      - mkdir -p bin
+      - staticcheck -version
+      - staticcheck ./... | tee bin/staticcheck.log
+      - test `cat bin/staticcheck.log | wc -l` -eq 0
+      - rm -f bin/staticcheck.log
+
+  go-mod-tidy:
+    internal: true
+    run: once
+    desc: go mod 检查
+    cmds:
+      - |
+        # 记录原有的 go.mod 和 go.sum
+        cp go.mod go.mod.bak
+        cp go.sum go.sum.bak
+
+        time go mod tidy
+
+        # 检查文件差异
+        MOD_CHANGES=$(diff go.mod go.mod.bak | wc -l)
+        SUM_CHANGES=$(diff go.sum go.sum.bak | wc -l)
+
+        # 清理备份文件
+        rm -f go.mod.bak go.sum.bak
+
+        if [ $MOD_CHANGES -eq 0 ] && [ $SUM_CHANGES -eq 0 ]; then
+          echo "✅ No changes in go.mod or go.sum"
+        else
+          echo "⚠️ Detected changes:"
+          [ $MOD_CHANGES -gt 0 ] && echo "  - go.mod has changes"
+          [ $SUM_CHANGES -gt 0 ] && echo "  - go.sum has changes"
+          echo "⚠️ Run 'go mod tidy' to fix go.mod and go.sum!"
+          exit 1
+        fi

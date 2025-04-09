@@ -1,0 +1,43 @@
+version: "3"
+
+# 下载 task 插件
+# go install github.com/go-task/task/v3/cmd/task@latest
+output: "prefixed"
+
+vars:
+  GO_BIN: "{{.USER_WORKING_DIR}}/bin"
+  GO_PATH:
+    sh: "go env GOPATH | awk -F: '{print $1}' "
+  GIT_COMMIT:
+    sh: git rev-parse --short HEAD
+  BUILD_TIME:
+    sh: TZ='Asia/Shanghai' date "+%Y-%m-%d-%H-%M-%S"
+  LDFLAGS: "-s -w  -X 'github.com/jimmicro/version.GitTag={{.GIT_COMMIT}}' \
+    -X 'github.com/jimmicro/version.BuildTime={{.BUILD_TIME}}'"
+  GO_OS:
+    sh: "go env GOOS"
+  GO_ARCH:
+    sh: "go env GOARCH"
+
+includes:
+  build: # 编译二进制
+    taskfile: ./hack/taskfile/build.yaml
+    flatten: true
+  check: # 静态检查
+    taskfile: ./hack/taskfile/check.yaml
+    flatten: true
+
+tasks:
+  default:
+    desc: 打印任务列表
+    cmds:
+      - task --list-all --sort none
+    silent: true
+
+  deps:
+    desc: 安装需要的工具
+    run: once
+    cmds:
+      - time go version
+      - go install mvdan.cc/gofumpt@latest
+      - go install honnef.co/go/tools/cmd/staticcheck@latest
