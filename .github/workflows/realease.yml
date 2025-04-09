@@ -3,6 +3,10 @@ on:
     tags:
       - v*
 
+permissions:
+    contents: write
+    packages: write
+
 jobs:
   releases-matrix:
     name: Release Go Binary
