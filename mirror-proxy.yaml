@@ -1,0 +1,13 @@
+listen: 127.0.0.1:8080
+
+mmdb_path:
+  country: GeoLite2-Country.mmdb
+  city: GeoLite2-City.mmdb
+  asn: GeoLite2-ASN.mmdb
+
+rules:
+  # 允许代理 http://github.com 的请求
+  - domain,http://github.com,allow
+  # 允许代理 https://raw.githubusercontent.com 和 http://raw.githubusercontent.com 的请求
+  - domain,raw.githubusercontent.com,allow
+  - match,deny

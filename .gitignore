@@ -23,3 +23,5 @@ bin/
 
 # mac 相关的文件
 .DS_Store
+
+*.mmdb
