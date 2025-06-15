@@ -38,13 +38,63 @@ func NewExecuter(cfg config.Config) (*Executer, error) {
 	return &exe, nil
 }
 
-func (e *Executer) Handle(w http.ResponseWriter, r *http.Request) {
-	clientIP := strings.Split(r.RemoteAddr, ":")[0]
-	srcIP, err := netip.ParseAddr(clientIP)
+// getSrcIP 获取请求的真实来源 IP 地址
+// 按照以下优先级获取：
+// 1. X-Forwarded-For 头中的第一个 IP
+// 2. X-Real-IP 头
+// 3. RemoteAddr
+func getSrcIP(r *http.Request) (netip.Addr, error) {
+	// 1. 检查 X-Forwarded-For
+	if forwardedFor := r.Header.Get("X-Forwarded-For"); forwardedFor != "" {
+		// 获取第一个 IP（最接近客户端的 IP）
+		ips := strings.Split(forwardedFor, ",")
+		if len(ips) > 0 {
+			// 清理 IP 地址中的空格
+			ip := strings.TrimSpace(ips[0])
+			if addr, err := netip.ParseAddr(ip); err == nil {
+				return addr, nil
+			}
+		}
+	}
+
+	// 2. 检查 X-Real-IP
+	if realIP := r.Header.Get("X-Real-IP"); realIP != "" {
+		if addr, err := netip.ParseAddr(realIP); err == nil {
+			return addr, nil
+		}
+	}
+
+	// 3. 使用 RemoteAddr
+	// 处理 IPv6 地址的端口格式 [::1]:1234
+	remoteAddr := r.RemoteAddr
+	if strings.Contains(remoteAddr, "[") {
+		// IPv6 地址格式
+		lastColon := strings.LastIndex(remoteAddr, ":")
+		if lastColon != -1 {
+			remoteAddr = remoteAddr[:lastColon]
+		}
+		// 移除 IPv6 地址的方括号
+		remoteAddr = strings.Trim(remoteAddr, "[]")
+	} else {
+		// IPv4 地址格式
+		remoteAddr = strings.Split(remoteAddr, ":")[0]
+	}
+
+	addr, err := netip.ParseAddr(remoteAddr)
 	if err != nil {
-		http.Error(w, fmt.Sprintf("invalid source ip: %s, %s", clientIP, err.Error()), http.StatusBadRequest)
+		return netip.Addr{}, err
+	}
+
+	return addr, nil
+}
+
+func (e *Executer) Handle(w http.ResponseWriter, r *http.Request) {
+	srcIP, err := getSrcIP(r)
+	if err != nil {
+		http.Error(w, fmt.Sprintf("invalid source ip: %s", err.Error()), http.StatusBadRequest)
 		return
 	}
+
 	targetURL, err := getTargetURL(r)
 	if err != nil {
 		http.Error(w, fmt.Sprintf("invalid target url: %s", err.Error()), http.StatusBadRequest)
@@ -70,48 +120,57 @@ func (e *Executer) Handle(w http.ResponseWriter, r *http.Request) {
 }
 
 func getTargetURL(r *http.Request) (*url.URL, error) {
-	// 获取原始路径并解码
-	targetHostPath := r.URL.Path
-	// 去掉前缀 /
-	targetHostPath = strings.TrimPrefix(targetHostPath, "/")
+	// 获取并清理路径
+	path := strings.TrimPrefix(r.URL.Path, "/")
+	if path == "" {
+		return nil, fmt.Errorf("empty path")
+	}
 
-	if strings.HasPrefix(targetHostPath, "https:/") {
-		targetHostPath = strings.TrimPrefix(targetHostPath, "https://")
-		targetHostPath = strings.TrimPrefix(targetHostPath, "https:/")
-		targetHostPath = "https://" + targetHostPath
-	} else if strings.HasPrefix(targetHostPath, "http:/") {
-		targetHostPath = strings.TrimPrefix(targetHostPath, "http://")
-		targetHostPath = strings.TrimPrefix(targetHostPath, "http:/")
-		targetHostPath = "http://" + targetHostPath
+	// 处理 URL 格式
+	var targetURLStr string
+	switch {
+	case strings.HasPrefix(path, "https://"):
+		targetURLStr = path
+	case strings.HasPrefix(path, "http://"):
+		targetURLStr = path
+	case strings.HasPrefix(path, "https:/"):
+		targetURLStr = "https://" + strings.TrimPrefix(path, "https:/")
+	case strings.HasPrefix(path, "http:/"):
+		targetURLStr = "http://" + strings.TrimPrefix(path, "http:/")
+	default:
+		// 无协议的情况，默认使用 https
+		targetURLStr = "https://" + path
 	}
 
 	// 解析 URL
-	targetURL, err := url.Parse(targetHostPath)
+	targetURL, err := url.Parse(targetURLStr)
 	if err != nil {
-		return nil, fmt.Errorf("failed to parse URL: %w", err)
+		return nil, fmt.Errorf("invalid URL format: %w", err)
 	}
 
-	// 设置查询参数
-	targetURL.RawQuery = r.URL.RawQuery
-
-	// 如果没有协议，设置为 https
+	// 验证 URL 格式
 	if targetURL.Scheme == "" {
-		targetURL.Scheme = "https"
+		return nil, fmt.Errorf("missing URL scheme")
 	}
-
-	// 如果主机名为空，使用路径作为主机名
 	if targetURL.Host == "" {
-		// 分割路径，第一部分作为主机名，剩余部分作为路径
-		parts := strings.SplitN(targetURL.Path, "/", 2)
-		targetURL.Host = parts[0]
-		if len(parts) > 1 {
-			targetURL.Path = "/" + parts[1]
-		} else {
-			targetURL.Path = "/"
-		}
+		return nil, fmt.Errorf("missing URL host")
 	}
 
-	slog.Info("final target url", "target_url", targetURL.String())
+	// 处理查询参数
+	if r.URL.RawQuery != "" {
+		targetURL.RawQuery = r.URL.RawQuery
+	}
+
+	// 确保路径以 / 开头
+	if !strings.HasPrefix(targetURL.Path, "/") {
+		targetURL.Path = "/" + targetURL.Path
+	}
+
+	slog.Info("target URL processed",
+		"original_path", r.URL.Path,
+		"final_url", targetURL.String(),
+	)
+
 	return targetURL, nil
 }
 

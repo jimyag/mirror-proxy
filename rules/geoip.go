@@ -22,7 +22,13 @@ var _ Rule = (*GeoIPRule)(nil)
 
 func (g *GeoIPRule) Match(metadata constant.Metadata) (res bool) {
 	defer func() {
-		slog.Info("geoip rule match", "country", g.country, "action", g.action, "result", res)
+		action := constant.RuleActionDeny
+		if res {
+			action = constant.RuleActionAllow
+		}
+		slog.Info("geoip rule match",
+			"country", g.country, "is_src", g.isSrc,
+			"src_ip", metadata.SrcIP, "action", g.action, "result", action)
 	}()
 	record := constant.MMDBRecord{}
 	if g.isSrc {

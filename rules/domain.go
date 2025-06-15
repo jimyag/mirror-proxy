@@ -43,11 +43,13 @@ func NewDomainRule(domain string, action constant.RuleAction) (*DomainRule, erro
 // Match 检查域名是否匹配
 func (r *DomainRule) Match(metadata constant.Metadata) (res bool) {
 	defer func() {
-		result := constant.RuleActionDeny
+		action := constant.RuleActionDeny
 		if res {
-			result = constant.RuleActionAllow
+			action = constant.RuleActionAllow
 		}
-		slog.Info("domain rule match", "host", metadata.Host, "protocol", metadata.Protocol, "action", r.action, "result", result)
+		slog.Info("domain rule match",
+			"host", metadata.Host, "protocol", metadata.Protocol,
+			"action", r.action, "result", action)
 	}()
 	if metadata.Host != r.host {
 		return false
