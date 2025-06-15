@@ -75,9 +75,15 @@ func getTargetURL(r *http.Request) (*url.URL, error) {
 	// 去掉前缀 /
 	targetHostPath = strings.TrimPrefix(targetHostPath, "/")
 
-	// 如果路径以 https:/ 开头，修复为 https://
-	targetHostPath = strings.Replace(targetHostPath, "https:/", "https://", 1)
-	targetHostPath = strings.Replace(targetHostPath, "http:/", "http://", 1)
+	if strings.HasPrefix(targetHostPath, "https:/") {
+		targetHostPath = strings.TrimPrefix(targetHostPath, "https://")
+		targetHostPath = strings.TrimPrefix(targetHostPath, "https:/")
+		targetHostPath = "https://" + targetHostPath
+	} else if strings.HasPrefix(targetHostPath, "http:/") {
+		targetHostPath = strings.TrimPrefix(targetHostPath, "http://")
+		targetHostPath = strings.TrimPrefix(targetHostPath, "http:/")
+		targetHostPath = "http://" + targetHostPath
+	}
 
 	// 解析 URL
 	targetURL, err := url.Parse(targetHostPath)
