@@ -5,6 +5,7 @@ go 1.24
 require (
 	github.com/jimmicro/version v1.0.0
 	github.com/oschwald/maxminddb-golang/v2 v2.0.0-beta.3
+	github.com/phuslu/fastdns v0.12.5
 	github.com/stretchr/testify v1.10.0
 	gopkg.in/yaml.v3 v3.0.1
 )

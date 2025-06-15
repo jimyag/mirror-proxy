@@ -31,10 +31,14 @@ func ParseRule(ruleStr string, cfg config.Config) (Rule, error) {
 		return NewDomainRule(payload, action)
 	case "match":
 		return NewMatchRule(payload, action), nil
-	case "src-ip":
+	case "src-geoip":
 		return NewGeoIPRule(payload, action, cfg, true)
-	case "dst-ip":
+	case "dst-geoip":
 		return NewGeoIPRule(payload, action, cfg, false)
+	case "src-ipcidr":
+		return NewIpCIDRRule(payload, action, true, cfg.DNS)
+	case "dst-ipcidr":
+		return NewIpCIDRRule(payload, action, false, cfg.DNS)
 	default:
 		return nil, fmt.Errorf("invalid rule type: %s", ty)
 	}

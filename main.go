@@ -8,6 +8,7 @@ import (
 
 	_ "github.com/jimmicro/version"
 
+	"github.com/jimyag/mirror-proxy/component/resolver"
 	"github.com/jimyag/mirror-proxy/config"
 	"github.com/jimyag/mirror-proxy/execute"
 )
@@ -26,6 +27,7 @@ func main() {
 		slog.Error("failed to load config", "error", err)
 		os.Exit(1)
 	}
+	resolver.DNS = cfg.DNS
 	executer, err := execute.NewExecuter(cfg)
 	if err != nil {
 		slog.Error("failed to create executer", "error", err)

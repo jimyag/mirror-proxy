@@ -3,6 +3,7 @@ package rules
 import (
 	"log/slog"
 	"net/url"
+	"strings"
 
 	"github.com/jimyag/mirror-proxy/constant"
 )
@@ -25,6 +26,9 @@ func NewDomainRule(domain string, action constant.RuleAction) (*DomainRule, erro
 	if err != nil {
 		return nil, err
 	}
+	if !strings.HasPrefix(domain, "http://") && !strings.HasPrefix(domain, "https://") {
+		u.Host = domain
+	}
 
 	r := DomainRule{
 		host:       u.Host,
@@ -41,15 +45,15 @@ func NewDomainRule(domain string, action constant.RuleAction) (*DomainRule, erro
 }
 
 // Match 检查域名是否匹配
-func (r *DomainRule) Match(metadata constant.Metadata) (res bool) {
+func (r *DomainRule) Match(metadata constant.Metadata) (match bool) {
 	defer func() {
-		action := constant.RuleActionDeny
-		if res {
-			action = constant.RuleActionAllow
+		if !match {
+			return
 		}
 		slog.Info("domain rule match",
-			"host", metadata.Host, "protocol", metadata.Protocol,
-			"action", r.action, "result", action)
+			"rule_host", r.host, "host", metadata.Host,
+			"protocol", metadata.Protocol, "src_ip", metadata.SrcIP,
+			"action", r.action)
 	}()
 	if metadata.Host != r.host {
 		return false

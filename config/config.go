@@ -10,6 +10,7 @@ type Config struct {
 	Listen   string   `yaml:"listen"`
 	Rules    []string `yaml:"rules"`
 	MMDBPath MMDB     `yaml:"mmdb_path"`
+	DNS      string   `yaml:"dns"`
 }
 
 func (c *Config) Load(path string) error {
@@ -46,6 +47,9 @@ func (c *Config) setDefault() {
 	}
 	if c.Rules == nil {
 		c.Rules = defaultRules
+	}
+	if c.DNS == "" {
+		c.DNS = "https://1.1.1.1/dns-query"
 	}
 }
 

@@ -106,12 +106,17 @@ func (e *Executer) Handle(w http.ResponseWriter, r *http.Request) {
 		Protocol: targetURL.Scheme,
 	}
 	for _, rule := range e.rules {
-		if rule.Match(metadata) {
-			if rule.Action() == constant.RuleActionAllow {
-				e.Execute(w, r, targetURL)
+		match := rule.Match(metadata)
+		if match {
+			switch rule.Action() {
+			case constant.RuleActionAllow:
+				e.Execute(w, r, targetURL, metadata)
 				return
-			} else if rule.Action() == constant.RuleActionDeny {
+			case constant.RuleActionDeny:
 				http.Error(w, "request denied", http.StatusForbidden)
+				return
+			default:
+				http.Error(w, "no rule matched", http.StatusBadRequest)
 				return
 			}
 		}
@@ -174,7 +179,7 @@ func getTargetURL(r *http.Request) (*url.URL, error) {
 	return targetURL, nil
 }
 
-func (e *Executer) Execute(w http.ResponseWriter, r *http.Request, targetURL *url.URL) {
+func (e *Executer) Execute(w http.ResponseWriter, r *http.Request, targetURL *url.URL, metadata constant.Metadata) {
 	now := time.Now()
 	// 复制请求
 	req, err := http.NewRequestWithContext(r.Context(), r.Method, targetURL.String(), r.Body)
@@ -225,7 +230,7 @@ func (e *Executer) Execute(w http.ResponseWriter, r *http.Request, targetURL *ur
 	}
 	sizeMB := float64(n) / 1024 / 1024
 	slog.With(
-		slog.String("src_ip", r.RemoteAddr),
+		slog.String("src_ip", metadata.SrcIP.String()),
 		slog.String("target_url", targetURL.String()),
 		slog.Int("status_code", resp.StatusCode),
 		slog.String("duration", time.Since(now).String()),
